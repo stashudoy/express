@@ -1,87 +1,132 @@
-import express  from 'express'
-const app = express()  //создали приложение, вызванная ф-ия express возвращает объект app, который может слушать порт и обрабатывать запросы и ответы
-const port = 5000
-const HTTP_STATUSES = {
-  OK_200: 200,
-  CREATED_201: 201,
-  NO_CONTENT_204: 204,
-  BAD_REQUEST_400: 400,
-  NOT_FOUND_404: 404
+import { ProductIdUriParamsModel } from './models/ProductIdUriParamsModel';
+import { ProductViewModel } from './models/ProductViewModel';
+import { RequestWithQuery, RequestWithBody, RequestWithParams, RequestWithParamsAndBody } from './types';
+import express, {Request, Response} from 'express'
+import bodyParser from 'body-parser'
+import { ProductCreateModel } from './models/ProductCreateModel'
+import {ProductUpdateModel} from './models/ProductUpdateModel'
+import {ProductQueryModel} from './models/ProductsQueryModel'
+export const app = express()   // export for tests
+const port = process.env.PORT || 5000
+
+type ProductType = {
+  id: number,
+  title: string
 }
-const jsonBodyMiddleware = express.json()  // позволяет биты параметров body превращать в json
-app.use(jsonBodyMiddleware)  // прежде чем закидывать в хендлеры ф-ий типа post нужно проеобразовать данные  в json также не забывать content-type: application/json
-const db = {
-  products:[
-    {id:1, title: 'apple'},
-    {id:2, title: 'orange'},
-    {id:3, title: 'cherry'}
-  ]}
-app.get('/find1', (req, res)=> {
-    res.send(req.query.title)   //http://localhost:5000/find1?title=%3Cimg%20src%20onerror=alert()%3E     =>  alert()
 
-})  
-app.get('/find2:title', (req, res)=> {   //http://localhost:5000/find2/%3Cimg%20src%20onerror=alert()%3E   => 404 not alert()
-  res.send(req.params.title)
+type AddressType = {
+  id: number,
+  value: string
+}
 
-})  
-app.get('/', (req, res) => {  //get - по другому это ф-ия handler, которая умеет обрабатывать запрос и возвращать ответ.
-  res.send({message:'Hello, tester!'})
-})
-app.get('/products', (req, res) => {
-  let foundProducts = db.products
-  if(req.query.title){
-// стандартный поиск с помощью indexOf(), пробегая по всем продуктам будут браться с индексами 0 и выше
-    foundProducts = db.products.filter(p => p.title.indexOf(req.query.title as string) > -1)  
-    res.json(foundProducts)}
-   else{res.json(foundProducts)} 
-   // если массив пустой не нужно делать проверку на пустоту
-  })
-app.get('/products/:id', (req, res) => {
-  const products = db.products.find(p => p.id  === +req.params.id)  
-  //product-псевдоним p => у которого p.id === точно равен параметру URI, + приведение к числовому формату, т.к. параметр в url строка  
-  if(!products) {
-    res.sendStatus(HTTP_STATUSES.NOT_FOUND_404)
-    return
+let db: {products:ProductType[], addresses: AddressType[]} = {
+  products:[{id:1, title: 'tomato'},{id:2,title:'orange'}],
+  addresses:[{id:1, value: 'Moscow'},{id:2, value: 'London'}]
+}
+
+const getViewModel= (p: ProductType): ProductViewModel => {
+  return {
+    id: p.id,
+    title: p.title
   }
-  res.json(products)
-  })
-//CREATE
-app.post('/products', (req,res) => {
-  if(!req.body.title){
-    res.sendStatus(HTTP_STATUSES.BAD_REQUEST_400)
-    res.json('Insert title')
-    return
+}
+  
+
+app.use(bodyParser.urlencoded());
+
+app.use(bodyParser.json());
+
+app.get('/', (req: Request, res: Response<ProductType[]>) => {
+  //res.send(req.query.id)  // reflected http://localhost:5000/?id=<img src onerror=alert()>
+  res.json(db.products)
+  res.sendStatus(200)
+})
+app.get('/products', (req: RequestWithQuery<ProductQueryModel>, res: Response<ProductViewModel[]>) => {
+  let searchProducts = db.products 
+  if(req.query.title){  //http://localhost:5000/products?title=orange  Поиск по символам в названии  // если мы передаем два раза одинаковый параметр то это будет массив
+    searchProducts = searchProducts.filter(p => p.title.indexOf(req.query.title) > -1)  // -1 это типа номер индекса
+    res.json(searchProducts.map(getViewModel))   
+  }  
+  else{
+    res.json(db.products)
+  }  
+})
+app.get('/products/:id', (req: RequestWithParams<ProductIdUriParamsModel>, res: Response<ProductViewModel>) => {
+  let product = db.products.find(p => p.id === +req.params.id)
+  //res.send(req.params.title) //  reflected xss in params (uri)
+  if(product){
+    
+    res.json(getViewModel(product))
   }else{
-    const newproduct = {
-      id:  +(new Date()),
-      title: req.body.title
-    }
-    db.products.push(newproduct)
-    res.status(HTTP_STATUSES.CREATED_201).json(newproduct)
-  }})
-//DELETE
-app.delete('/products/:id', (req, res) => {
-    db.products = db.products.filter(p => p.id !== +req.params.id) //выбрось те продукты которые не равны этим id  
-    res.sendStatus(HTTP_STATUSES.NO_CONTENT_204) 
-  })
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
-})
-//UPDATE
-app.put('/products/:id', (req, res) => {
-  if(!req.body.title){
-    res.sendStatus(HTTP_STATUSES.BAD_REQUEST_400)
-    res.json('Insert title')
-    return
-  }
-  const foundProduct = db.products.find(p => p.id  === +req.params.id)  
-  //product-псевдоним p => у которого p.id === точно равен параметру URI, + приведение к числовому формату, т.к. параметр в url строка  
-  if(!foundProduct) {
     res.sendStatus(404)
-    return
+  }  
+})
+app.get('/product/:title', (req: RequestWithParams<{title:string}>, res: Response<ProductViewModel>) => {
+  let product = db.products.find(p => p.title === req.params.title)
+  if(product) {
+    res.json(getViewModel(product))
+  } else {
+    res.sendStatus(404)
   }
-  foundProduct.title = req.body.title
-  res.sendStatus(204)
+})
+app.get('/addresses', (req: Request, res: Response<AddressType[]>) => {
+    res.send(db.addresses)
+})
+app.get('/addresses/:id', (req: RequestWithParams<ProductIdUriParamsModel>, res: Response<AddressType>) => {
+  let address = db.addresses.find(a => a.id === +req.params.id)
+  if(address){    
+    res.json(address)
+  }else{
+    res.status(404)
+  }
+})
+app.delete('/products/:id', (req: RequestWithParams<ProductIdUriParamsModel>, res: Response) => {
+  for (let i=0; i< db.products.length; i++){
+    if(db.products[i].id === +req.params.id) {
+      db.products.splice(i, 1)
+      res.status(204)
+      return
+    }
+  }
+  res.send(404)
+  } )
+  app.post('/products', (req: RequestWithBody<ProductCreateModel>, res:Response)=> {
+    // don't forget import bodyParser from 'body-parser' and add midleware for json parsing
+    if(!req.body.title){
+      res.sendStatus(400)
+      return
+    }
+    if(req.body.title){
+    const newProduct = {id:+(new Date()), title: req.body.title}
+    db.products.push(newProduct)
+    res.status(201).send(newProduct)}
+
   })
+  app.put('/products/:id', (req: RequestWithParamsAndBody<ProductIdUriParamsModel,ProductUpdateModel>, res:Response<ProductViewModel>)=> {
+    if(!req.body.title){
+      res.sendStatus(400)
+      return
+    }
+    let product = db.products.find(p => p.id === +req.params.id)
+    if(product) {
+      product.title = req.body.title
+      res.send(getViewModel(product))
+      res.status(201)
+    }else {
+      res.status(404)
+    } 
+  })
+
+  app.delete('/__test__/data', (req:Request, res:Response) => {
+    db.products = []
+    res.send()
+    res.sendStatus(204)
+  })
+
+
+app.listen(port, () => {
+  console.log(`Example app listening port: ${port}`)
+})
+
 
 
