@@ -1,3 +1,4 @@
+
 import { productsCollection } from './db';
 
 export type ProductType = {
@@ -22,40 +23,33 @@ export const productRepository = {
       
    },
 
-  async createProduct(name: string| null | undefined): Promise<ProductType | undefined> {    
-      if(name) {
-        const newProduct = {
-          id: + (new Date()),
-          title: name
-        }
-        //xss storage in body param: get_by_id(when res.send(product.title))res.send(product.title)
+  async createProduct(newProduct: ProductType): Promise<ProductType | undefined> {    
+      
+      
         const result = await productsCollection.insertOne(newProduct)
         return newProduct    
-      }
+      
     },
 
+
+  async updateProductById(id: number, title: string): Promise<boolean> {
+        const result = await productsCollection.updateOne({id: id}, { $set: { title: title}})
+        return result.matchedCount === 1
+    }, 
+    
+    
+
+
   async findProductById(id: number): Promise<ProductType | null> {
-    let product = await productsCollection.findOne({ id: id})  // можно оставить просто {id}
-    //res.send(req.params.title) //  reflected xss in params (uri)
+    let product: ProductType| null = await productsCollection.findOne({id: id})
     return product
    },
 
-  async updateProductById(id: number, name: string): Promise<boolean> {
-      let product = await productsCollection.updateOne(
-        {id: id},
-        { $set: { title: name}}
-      )      
 
-     return product.matchedCount ===1
-   },
 
   async deleteProductById(id: number): Promise<boolean>{
-    let product = productsCollection.deleteOne({id: id})
-    //res.send(req.params.title) //  reflected xss in params (uri)
-    if((await product).deletedCount === 1){
-      return true
-    } 
-    
-    return false
-   },
+    let product = await productsCollection.deleteOne({id: id})
+    return product.deletedCount === 1
+  }
+     
 }

@@ -1,6 +1,7 @@
+
 import { ProductType } from '../db/db';
 import { Router, Request, Response } from "express";
-import { productRepository } from "../repositories/products-db-repository";
+import { productServices } from "../domains/products-service";
 import { body} from "express-validator";
 import {inputValidationMiddleware} from '../midlewares/input-validation-midleware'
 
@@ -14,21 +15,21 @@ const titleValidation = body('title').trim().isLength({min: 0, max: 300}).withMe
 
 
 productsRouter.get('/', async (req: Request, res: Response) => {
-  const foundProducts = await productRepository.findQueryTitleProducts(req.query.title ? req.query.title?.toString():null)
+  const foundProducts = await productServices.findQueryTitleProducts(req.query.title ? req.query.title?.toString():null)
  res.send(foundProducts)})
 
 productsRouter.post('/', 
             titleValidation,
             inputValidationMiddleware,
             async (req: Request, res: Response) => {          
-              const newProduct = await productRepository.createProduct(req.body.title)
+              const newProduct = await productServices.createProduct(req.body.title)
               res.status(201).send(newProduct)
               // избежать 500х ошибок невозможно, рано или поздно они все равно будут, нужно пытаться их избегать         
             })            
           
 
 productsRouter.get('/:id', async (req: Request, res: Response) => {
-            let product: ProductType | null = await productRepository.findProductById(+req.params.id)
+            let product: ProductType | null = await productServices.findProductById(+req.params.id)
             if(product){              
               res.send(product.title)   //if createProduct: {"title":"<img src onerror=alert()>"}  => XSS stored
             }else{
@@ -43,10 +44,10 @@ productsRouter.put('/:id',
    
             
             
-            let isUpdated= await productRepository.updateProductById(+req.params.id, req.body.title)
-            if(isUpdated == true){
+            let isUpdated= await productServices.updateProductById(+req.params.id, req.body.title)
+            if(isUpdated){
               //res.send(isUpdated)
-              let product  = await productRepository.findProductById(+req.params.id)
+              let product  = await productServices.findProductById(+req.params.id)
               res.status(201).send(product)
             }else {
               res.send(isUpdated)
@@ -57,26 +58,13 @@ productsRouter.put('/:id',
             
 
 productsRouter.delete('/:id', async (req: Request, res: Response) => {
-  let isDeleted = await productRepository.deleteProductById(+req.params.id)
+  let isDeleted = await productServices.deleteProductById(+req.params.id)
 
   if(isDeleted == true) {
     res.json("Product deleted")
   } else {
     res.json("Product is not deleted")
-  }
-
-            // let products = productRepository.findQueryTitleProducts(null)
-            // for(let i=0; i< products.length; i++ )         
-            // if(products[i].id == +req.params.id) {
-            //   let isDeleted = productRepository.deleteProductById(+req.params.id)
-            //   res.send(isDeleted)
-            //   res.status(204)
-            //    return
-            //   }
-            // else
-            // res.sendStatus(404)
-            // 
-            
+  }           
   } )
             
 
