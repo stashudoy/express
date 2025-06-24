@@ -1,7 +1,6 @@
 import { db } from './db/db';
-import express, { NextFunction, Request, Response } from 'express'
+import express from 'express'
 import bodyParser from 'body-parser'
-import {getProductsRoutes} from './routes/products'
 import {getTestsRouter } from './routes/tests';
 import { addressesRouter } from './routes/addresses-routes-only-for-example';
 import { productsRouter } from './routes/products-routes-only-for-example';

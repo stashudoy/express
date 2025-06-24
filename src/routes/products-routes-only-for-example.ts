@@ -1,6 +1,6 @@
-import { ProductType } from './../db/db';
+import { ProductType } from '../db/db';
 import { Router, Request, Response } from "express";
-import { productRepository } from "../repositories/products-repository";
+import { productRepository } from "../repositories/products-db-repository";
 import { body} from "express-validator";
 import {inputValidationMiddleware} from '../midlewares/input-validation-midleware'
 
@@ -28,7 +28,7 @@ productsRouter.post('/',
           
 
 productsRouter.get('/:id', async (req: Request, res: Response) => {
-            let product: ProductType| undefined = await productRepository.findProductById(+req.params.id)
+            let product: ProductType | null = await productRepository.findProductById(+req.params.id)
             if(product){              
               res.send(product.title)   //if createProduct: {"title":"<img src onerror=alert()>"}  => XSS stored
             }else{
@@ -46,9 +46,8 @@ productsRouter.put('/:id',
             let isUpdated= await productRepository.updateProductById(+req.params.id, req.body.title)
             if(isUpdated == true){
               //res.send(isUpdated)
-              let product  = productRepository.findProductById(+req.params.id)
-              res.send(product)
-              res.status(201)
+              let product  = await productRepository.findProductById(+req.params.id)
+              res.status(201).send(product)
             }else {
               res.send(isUpdated)
               res.status(404)
